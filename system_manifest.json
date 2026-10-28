@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0",
+  "project_name": "pro-calc-converter",
+  "stack_type": "serverless_fastapi",
+  "runtime": {
+    "port": 8000,
+    "start_command": "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"
+  },
+  "network": {
+    "api_prefix": "/api"
+  },
+  "immutable_constraints": [
+    "Single source of truth runtime command stored in railway.toml only",
+    "All backend endpoints strictly prefixed with /api/",
+    "Pure HTML5 / Tailwind Dark Theme UI communicating via Fetch API"
+  ],
+  "living_adrs": [
+    {
+      "adr_id": "ADR-001",
+      "title": "Strict GitOps IaC Standard",
+      "context": "Prevent configuration drift",
+      "decision": "ADR-001: Strict GitOps standard enforcing railway.toml as Single Source of Truth.\nAll deployment configuration (build builder, startCommand, healthcheckPath, replicas, env var references) MUST live exclusively in railway.toml committed to the repo. No deployment settings are configured via the Railway dashboard UI or CLI flags at runtime. Any change to deployment behavior requires a PR modifying railway.toml and passing CI. This prevents configuration drift between environments and guarantees reproducible deploys. The /health endpoint defined in backend is a hard contract with healthcheckPath and must never be removed without an accompanying ADR update.",
+      "consequences": "Zero manual dashboard overrides"
+    }
+  ]
+}
