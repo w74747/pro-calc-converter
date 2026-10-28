@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Together AI — Calculator & Converter</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = { darkMode: 'class' };
+</script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen antialiased">
+
+<header class="sticky top-0 z-20 bg-gray-950/90 backdrop-blur border-b border-gray-800">
+  <div class="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+    <div>
+      <h1 class="text-lg sm:text-xl font-bold tracking-tight">
+        Together <span class="text-indigo-400">AI</span>
+      </h1>
+      <p class="text-xs sm:text-sm text-gray-400">Calculator &amp; Unit Converter</p>
+    </div>
+    <button id="themeToggle" type="button" aria-label="Theme"
+      class="min-h-10 min-w-10 px-3 rounded-lg border border-gray-700 bg-gray-900 text-xs font-medium text-emerald-400 hover:border-emerald-500 transition">
+      🌙 Dark
+    </button>
+  </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-4 py-6">
+
+  <!-- Tabs -->
+  <div class="flex gap-2 mb-5">
+    <button id="tabCalc" type="button"
+      class="flex-1 min-h-12 rounded-xl font-semibold text-sm sm:text-base bg-indigo-500 text-white shadow-lg shadow-indigo-500/20 transition">
+      Calculator
+    </button>
+    <button id="tabConv" type="button"
+      class="flex-1 min-h-12 rounded-xl font-semibold text-sm sm:text-base bg-gray-900 text-gray-300 border border-gray-800 hover:border-gray-700 transition">
+      Converter
+    </button>
+  </div>
+
+  <div id="errorBanner" class="hidden mb-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-400"></div>
+
+  <!-- CALCULATOR PANEL -->
+  <section id="panelCalc" class="space-y-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+      <div class="text-xs text-gray-500 h-4 text-right truncate" id="calcExpr">&nbsp;</div>
+      <div id="calcDisplay"
+        class="text-right text-4xl sm:text-5xl font-mono font-semibold overflow-x-auto whitespace-nowrap py-2 min-h-[64px] scrollbar-thin">
+        0
+      </div>
+    </div>
+
+    <div id="calcGrid" class="grid grid-cols-4 gap-2 sm:gap-3"></div>
+  </section>
+
+  <!-- CONVERTER PANEL -->
+  <section id="panelConv" class="hidden space-y-4">
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 space-y-4">
+
+      <div class="flex flex-wrap gap-2" id="catPills"></div>
+
+      <div class="space-y-3">
+        <label class="block text-xs font-medium text-gray-400 uppercase tracking-wide">Value</label>
+        <input id="convInput" type="number" step="any" inputmode="decimal" placeholder="Enter value"
+          class="w-full min-h-12 rounded-xl bg-gray-950 border border-gray-800 px-4 text-lg text-gray-100 placeholder-gray-600 focus:outline-none focus:border-indigo-500 transition">
+
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-end">
+          <div>
+            <label class="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">From</label>
+            <select id="fromUnit"
+              class="w-full min-h-12 rounded-xl bg-gray-950 border border-gray-800 px-3 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition"></select>
+          </div>
+          <button id="swapBtn" type="button" aria-label="Swap units"
+            class="min-h-12 min-w-12 rounded-xl bg-gray-800 border border-gray-700 text-emerald-400 text-xl font-bold hover:bg-gray-700 transition">
+            ⇄
+          </button>
+          <div>
+            <label class="block text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">To</label>
+            <select id="toUnit"
+              class="w-full min-h-12 rounded-xl bg-gray-950 border border-gray-800 px-3 text-sm text-gray-100 focus:outline-none focus:border-indigo-500 transition"></select>
+          </div>
+        </div>
+
+        <button id="convertBtn" type="button"
+          class="w-full min-h-12 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-semibold transition shadow-lg shadow-indigo-500/20">
+          Convert
+        </button>
+      </div>
+
+      <div class="rounded-xl bg-gray-950 border border-gray-800 p-4">
+        <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">Result</div>
+        <div id="convResult" class="text-2xl sm:text-3xl font-mono font-semibold text-emerald-400 break-all">—</div>
+        <div id="convFormula" class="text-xs text-gray-400 mt-2 break-all"></div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="bg-gray-900 border border-gray-800 rounded-2xl p-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-400">History</h2>
+        <button id="clearHistory" type="button"
+          class="min-h-9 px-3 rounded-lg text-xs font-medium border border-rose-500/40 text-rose-400 hover:bg-rose-500/10 transition">
+          Clear history
+        </button>
+      </div>
+      <div id="historyList" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+        <p class="text-sm text-gray-500">Loading…</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  const API = "/api";
+  const $ = (id) => document.getElementById(id);
+
+  // ---------- Error banner ----------
+  const errorBanner = $("errorBanner");
+  let errorTimer = null;
+  function showError(msg) {
+    errorBanner.textContent = msg || "Something went wrong.";
+    errorBanner.classList.remove("hidden");
+    clearTimeout(errorTimer);
+    errorTimer = setTimeout(() => errorBanner.classList.add("hidden"), 6000);
+  }
+  function clearError() {
+    errorBanner.classList.add("hidden");
+  }
+
+  // ---------- Theme ----------
+  $("themeToggle").addEventListener("click", () => {
+    showError("Dark theme is locked for this app.");
+  });
+
+  // ---------- Tabs ----------
+  const tabCalc = $("tabCalc"), tabConv = $("tabConv");
+  const panelCalc = $("panelCalc"), panelConv = $("panelConv");
+  const activeTab = "bg-indigo-500 text-white shadow-lg shadow-indigo-500/20";
+  const inactiveTab = "bg-gray-900 text-gray-300 border border-gray-800 hover:border-gray-700";
+
+  function setTab(which) {
+    const isCalc = which === "calc";
+    tabCalc.className = `flex-1 min-h-12 rounded-xl font-semibold text-sm sm:text-base transition ${isCalc ? activeTab : inactiveTab}`;
+    tabConv.className = `flex-1 min-h-12 rounded-xl font-semibold text-sm sm:text-base transition ${!isCalc ? activeTab : inactiveTab}`;
+    panelCalc.classList.toggle("hidden", !isCalc);
+    panelConv.classList.toggle("hidden", isCalc);
+    if (!isCalc) loadConverterTab();
+  }
+  tabCalc.addEventListener("click", () => setTab("calc"));
+  tabConv.addEventListener("click", () => setTab("conv"));
+
+  /* =========================================================
+     CALCULATOR
+  ========================================================= */
+  const displayEl = $("calcDisplay");
+  const exprEl = $("calcExpr");
+  let input = "";
+  let justEvaluated = false;
+
+  const BUTTONS = [
+    "C", "( )", "%", "⌫",
+    "√", "x²", "÷", "×",
+    "7", "8", "9", "−",
+    "4", "5", "6", "+",
+    "1", "2", "3", "=",
+    "0", ".", "(",
+  ];
+
+  // Build grid explicitly for correct layout
+  const gridDef = [
+    { label: "C", cls: "op" }, { label: "( )", cls: "op" }, { label: "%", cls: "op" }, { label: "⌫", cls: "op" },
+    { label: "√", cls: "op" }, { label: "x²", cls: "op" }, { label: "÷", cls: "op" }, { label: "×", cls: "op" },
+    { label: "7", cls: "num" }, { label: "8", cls: "num" }, { label: "9", cls: "num" }, { label: "−", cls: "op" },
+    { label: "4", cls: "num" }, { label: "5", cls: "num" }, { label: "6", cls: "num" }, { label: "+", cls: "op" },
+    { label: "1", cls: "num" }, { label: "2", cls: "num" }, { label: "3", cls: "num" }, { label: "=" }, 
+    { label: "0", cls: "num span2" }, { label: ".", cls: "num" },
+  ];
+
+  const baseBtn = "min-h-12 rounded-xl font-semibold text-lg transition select-none flex items-center justify-center";
+  const styleNum = "bg-gray-800 hover:bg-gray-700 text-gray-100";
+  const styleOp = "bg-gray-900 border border-gray-800 hover:border-indigo-500/60 text-indigo-300";
+  const styleEq = "bg-indigo-500 hover:bg-indigo-400 text-white shadow-lg shadow-indigo-500/20";
+
+  const calcGrid = $("calcGrid");
+  function renderGrid() {
+    calcGrid.innerHTML = "";
+    gridDef.forEach((b) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = b.label;
+      let cls = baseBtn;
+      if (b.label === "=") cls += " " + styleEq + " row-span-2";
+      else if (b.cls === "num") cls += " " + styleNum;
+      else cls += " " + styleOp;
+      if (b.cls === "span2") cls += " col-span-2";
+      btn.className = cls;
+      btn.addEventListener("click", () => handleKey(b.label));
+      calcGrid.appendChild(btn);
+    });
+  }
+  renderGrid();
+
+  function updateDisplay() {
+    const shown = input === "" ? "0" : input;
+    displayEl.textContent = shown;
+    displayEl.scrollLeft = displayEl.scrollWidth;
+  }
+
+  function appendRaw(s) {
+    if (justEvaluated && /[0-9.]/.test(s)) { input = ""; }
+    justEvaluated = false;
+    input += s;
+    updateDisplay();
+  }
+
+  function toggleParen() {
+    const open = (input.match(/\(/g) || []).length;
+    const close = (input.match(/\)/g) || []).length;
+    if (open > close && /[0-9)\.]$/.test(input)) {
+      appendRaw(")");
+    } else {
+      appendRaw("(");
+    }
+  }
+
+  function handleKey(label) {
+    switch (label) {
+      case "C":
+        input = ""; justEvaluated = false; exprEl.textContent = "\u00A0"; updateDisplay(); return;
+      case "⌫":
+        input = input.slice(0, -1); justEvaluated = false; updateDisplay(); return;
+      case "( )":
+        toggleParen(); return;
+      case "=":
+        evaluate(); return;
+      case "√":
+        if (justEvaluated) { input = ""; justEvaluated = false; }
+        input += "√("; updateDisplay(); return;
+      case "x²":
+        if (justEvaluated) { justEvaluated = false; }
+        input += "²"; updateDisplay(); return;
+      case "×":
+        appendRaw("*"); return;
+      case "÷":
+        appendRaw("/"); return;
+      case "−":
+        appendRaw("-"); return;
+      case "+":
+        appendRaw("+"); return;
+      case "%":
+        appendRaw("%"); return;
+      default:
+        appendRaw(label);
+    }
+  }
+
+  /* ---- Safe tokenizer + parser (shunting-yard -> RPN -> eval) ---- */
+  function tokenize(str) {
+    const tokens = [];
+    let i = 0;
+    const isDigit = (c) => c >= "0" && c <= "9";
+    while (i < str.length) {
+      const c = str[i];
+      if (c === " " || c === "\t") { i++; continue; }
+      if (isDigit(c) || c === ".") {
+        let num = "";
+        while (i < str.length && (isDigit(str[i]) || str[i] === ".")) { num += str[i]; i++; }
+        if ((num.match(/\./g) || []).length > 1) throw new Error("Invalid number");
+        tokens.push({ type: "num", value: parseFloat(num) });
+        continue;
+      }
+      if (c === "+" || c === "-" || c === "*" || c === "/" || c === "%") {
+        tokens.push({ type: "op", value: c }); i++; continue;
+      }
+      if (c === "√") { tokens.push({ type: "func", value: "sqrt" }); i++; continue; }
+      if (c === "²") { tokens.push({ type: "postfix", value: "sq" }); i++; continue; }
+      if (c === "(") { tokens.push({ type: "lparen" }); i++; continue; }
+      if (c === ")") { tokens.push({ type: "rparen" }); i++; continue; }
+      throw new Error("Unexpected character: " + c);
+    }
+    return tokens;
+  }
+
+  const prec = { "+": 1, "-": 1, "*": 2, "/": 2, "%": 2 };
+  const rightAssoc = {};
+
+  function shuntingYard(tokens) {
+    const output = [];
+    const stack = [];
+    for (let idx = 0; idx < tokens.length; idx++) {
+      const t = tokens[idx];
+      if (t.type === "num") {
+        output.push(t);
+      } else if (t.type === "func") {
+        stack.push(t);
+      } else if (t.type === "postfix") {
+        output.push(t);
+      } else if (t.type === "op") {
+        // Unary minus / plus handling
+        const isUnary = (t.value === "-" || t.value === "+") &&
+          (idx === 0 || tokens[idx - 1].type === "op" ||
+           tokens[idx - 1].type === "lparen" || tokens[idx - 1].type === "func");
+        if (isUnary) {
+          // Represent unary via special operator
+          const o = { type: "op", value: t.value === "-" ? "u-" : "u+", unary: true };
+          output.push({ type: "num", value: 0 }); // 0 op x trick for u-
+          // simpler: handle with marker
+          output.pop();
+          // push placeholder handled in eval: we will treat "u-" as prefix requiring previous context
+          // Easier: convert to explicit form by expecting next operand; use special handling:
+          stack.push(o);
+          continue;
+        }
+        while (stack.length) {
+          const top = stack[stack.length - 1];
+          if (top.type === "op" && !top.unary &&
+              (prec[top.value] > prec[t.value] ||
+              (prec[top.value] === prec[t.value] && !rightAssoc[t.value]))) {
+            output.push(stack.pop());
+          } else break;
+        }
+        stack.push(t);
+      } else if (t.type === "lparen") {
+        stack.push(t);
+      } else if (t.type === "rparen") {
+        while (stack.length && stack[stack.length - 1].type !== "lparen") {
+          output.push(stack.pop());
+        }
+        if (!stack.length) throw new Error("Mismatched parentheses");
+        stack.pop();
+        if (stack.length && stack[stack.length - 1].type === "func") {
+          output.push(stack.pop());
+        }
+      }
+    }
+    while (stack.length) {
+      const top = stack.pop();
+      if (top.type === "lparen") throw new Error("Mismatched parentheses");
+      output.push(top);
+    }
+    return output;
+  }
+
+  function evalRPN(rpn) {
+    const st = [];
+    for (const t of rpn) {
+      if (t.type === "num") {
+        st.push(t.value);
+      } else if (t.type === "op") {
+        if (t.unary) {
+          // handled during parse differently — not reached
+          throw new Error("Bad expression");
+        }
+        if (st.length < 2) throw new Error("Bad expression");
+        const b = st.pop(), a = st.pop();
+        let r;
+        switch (t.value) {
+          case "+": r = a + b; break;
+          case "-": r = a - b; break;
+          case "*": r = a * b; break;
+          case "/": r = b === 0 ? NaN : a / b; break;
+          case "%": r = b === 0 ? NaN : a % b; break;
+          default: throw new Error("Bad operator");
+        }
+        st.push(r);
+      } else if (t.type === "func") {
+        if (st.length < 1) throw new Error("Bad expression");
+        const a = st.pop();
+        if (t.value === "sqrt") {
+          if (a < 0) throw new Error("Domain error");
+          st.push(Math.sqrt(a));
+        } else throw new Error("Bad function");
+      } else if (t.type === "postfix") {
+        if (st.length < 1) throw new Error("Bad expression");
+        const a = st.pop();
+        if (t.value === "sq") st.push(a * a);
+        else throw new Error("Bad postfix");
+      } else {
+        throw new Error("Bad token");
+      }
+    }
+    if (st.length !== 1) throw new Error("Bad expression");
+    return st[0];
+  }
+
+  function evaluate() {
+    const raw = input.trim();
+    if (!raw) return;
+    try {
+      const tokens = tokenize(raw);
+      // preprocess unary into a simpler handling: insert 0 for leading unary
+      const pre = [];
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        const prev = tokens[i - 1];
+        const isUnary = (t.type === "op" && (t.value === "-" || t.value === "+")) &&
+          (i === 0 || (prev && (prev.type === "op" || prev.type === "lparen")));
+        if (isUnary) {
+          if (t.value === "-") {
+            pre.push({ type: "num", value: 0 });
+            pre.push({ type: "op", value: "-" });
+          }
+          // unary + is no-op
+        } else {
+          pre.push(t);
+        }
+      }
+      const rpn = shuntingYard(pre);
+      const result = evalRPN(rpn);
+      if (!isFinite(result) || isNaN(result)) throw new Error("Math error");
+      const pretty = parseFloat(result.toPrecision(12)).toString();
+      exprEl.textContent = raw + " =";
+      input = pretty;
+      justEvaluated = true;
+      updateDisplay();
+    } catch (e) {
+      displayEl.textContent = "Error";
+      exprEl.textContent = raw;
+      input = "";
+      justEvaluated = false;
+      setTimeout(() => { if (displayEl.textContent === "Error") { updateDisplay(); } }, 900);
+    }
+  }
+
+  // Keyboard support (calculator active)
+  document.addEventListener("keydown", (e) => {
+    if (panelCalc.classList.contains("hidden")) return;
+    if (e.key >= "0" && e.key <= "9") { handleKey(e.key); e.preventDefault(); }
+    else if (e.key === ".") { handleKey("."); e.preventDefault(); }
+    else if (e.key === "+") { handleKey("+"); e.preventDefault(); }
+    else if (e.key === "-") { handleKey("−"); e.preventDefault(); }
+    else if (e.key === "*") { handleKey("×"); e.preventDefault(); }
+    else if (e.key === "/") { handleKey("÷"); e.preventDefault(); }
+    else if (e.key === "%") { handleKey("%"); e.preventDefault(); }
+    else if (e.key === "(" || e.key === ")") { handleKey(e.key === "(" ? "(" : "( )"); e.preventDefault(); }
+    else if (e.key === "Enter" || e.key === "=") { handleKey("="); e.preventDefault(); }
+    else if (e.key === "Escape") { handleKey("C"); e.preventDefault(); }
+    else if (e.key === "Backspace") { handleKey("⌫"); e.preventDefault(); }
+  });
+
+  updateDisplay();
+
+  /* =========================================================
+     CONVERTER
+  ========================================================= */
+  const CATEGORIES = ["length", "mass", "temperature", "area", "volume"];
+  let currentCat = "length";
+  let unitsCache = null;
+  let historyLoaded = false;
+  let convertTimer = null;
+
+  const catPills = $("catPills");
+  const fromSel = $("fromUnit"), toSel = $("toUnit");
+  const convInput = $("convInput");
+  const convResult = $("convResult");
+  const convFormula = $("convFormula");
+  const historyList = $("historyList");
+
+  function catLabel(c) { return c.charAt(0).toUpperCase() + c.slice(1); }
+
+  function renderPills() {
+    catPills.innerHTML = "";
+    CATEGORIES.forEach((c) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = catLabel(c);
+      const active = c === currentCat;
+      btn.className = "min-h-10 px-4 rounded-full text-sm font-medium transition border " +
+        (active
+          ? "bg-indigo-500 text-white border-indigo-500 shadow-lg shadow-indigo-500/20"
+          : "bg-gray-950 text-gray-300 border-gray-800 hover:border-gray-700");
+      btn.addEventListener("click", () => {
+        if (currentCat === c) return;
+        currentCat = c;
+        renderPills();
+        populateUnits();
+      });
+      catPills.appendChild(btn);
+    });
+  }
+  renderPills();
+
+  function unitList(cat) {
+    if (unitsCache && unitsCache[cat]) return unitsCache[cat];
+    return [];
+  }
+
+  function populateUnits() {
+    const units = unitList(currentCat);
+    fromSel.innerHTML = "";
+    toSel.innerHTML = "";
+    if (!units.length) {
+      fromSel.innerHTML = '<option value="">—</option>';
+      toSel.innerHTML = '<option value="">—</option>';
+      return;
+    }
+    units.forEach((u) => {
+      const o1 = document.createElement("option");
+      o1.value = u.code || u.value || u.unit || u;
+      o1.textContent = u.label || u.name || (u.code || u);
+      fromSel.appendChild(o1);
+      const o2 = o1.cloneNode(true);
+      toSel.appendChild(o2);
+    });
+    fromSel.selectedIndex = 0;
+    toSel.selectedIndex = units.length > 1 ? 1 : 0;
+  }
+
+  async function loadUnits() {
+    if (unitsCache) return unitsCache;
+    try {
+      const res = await fetch(API + "/units");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      // Normalize into { cat: [{code,label}] }
+      const normalized = {};
+      const src = data.units || data;
+      if (Array.isArray(src)) {
+        src.forEach((item) => {
+          const c = item.category || item.cat;
+          if (!c) return;
+          normalized[c] = normalized[c] || [];
+          normalized[c].push({ code: item.code || item.unit, label: item.label || item.name || item.code });
+        });
+      } else if (src && typeof src === "object") {
+        CATEGORIES.forEach((c) => {
+          const arr = src[c];
+          if (Array.isArray(arr)) {
+            normalized[c] = arr.map((u) => typeof u === "string"
+              ? { code: u, label: u }
+              : { code: u.code || u.unit, label: u.label || u.name || u.code });
+          }
+        });
+      }
+      unitsCache = normalized;
+      return normalized;
+    } catch (e) {
+      showError("Failed to load units: " + e.message);
+      return null;
+    }
+  }
+
+  async function ensureUnits() {
+    if (unitsCache) return;
+    await loadUnits();
+    populateUnits();
+  }
+
+  async function loadConverterTab() {
+    await ensureUnits();
+    if (!historyLoaded) {
+      historyLoaded = true;
+      loadHistory();
+    }
+  }
+
+  async function doConvert() {
+    clearError();
+    const val = convInput.value.trim();
+    const from = fromSel.value;
+    const to = toSel.value;
+    if (val === "" || isNaN(parseFloat(val))) {
+      convResult.textContent = "—";
+      convFormula.textContent = "";
+      return;
+    }
+    if (!from || !to) {
+      convResult.textContent = "—";
+      convFormula.textContent = "";
+      return;
+    }
+    try {
+      const res = await fetch(API + "/conversions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: currentCat,
+          from_unit: from,
+          to_unit: to,
+          value: parseFloat(val),
+        }),
+      });
+      if (!res.ok) {
+        let detail = "Request failed (" + res.status + ")";
+        try {
+          const j = await res.json();
+          if (j && j.detail) {
+            detail = typeof j.detail === "string" ? j.detail : JSON.stringify(j.detail);
+          }
+        } catch (_) {}
+        throw new Error(detail);
+      }
+      const data = await res.json();
+      convResult.textContent = formatNum(data.result);
+      convFormula.textContent = data.formula || "";
+      loadHistory();
+    } catch (e) {
+      convResult.textContent = "—";
+      convFormula.textContent = "";
+      showError(e.message);
+    }
+  }
+
+  function formatNum(n) {
+    if (typeof n !== "number" || !isFinite(n)) return String(n);
+    const abs = Math.abs(n);
+    if (abs !== 0 && (abs < 1e-6 || abs >= 1e12)) return n.toExponential(6);
+    return parseFloat(n.toPrecision(12)).toString();
+  }
+
+  function debounceConvert() {
+    clearTimeout(convertTimer);
+    convertTimer = setTimeout(doConvert, 300);
+  }
+
+  convInput.addEventListener("input", debounceConvert);
+  fromSel.addEventListener("change", debounceConvert);
+  toSel.addEventListener("change", debounceConvert);
+  $("convertBtn").addEventListener("click", doConvert);
+
+  $("swapBtn").addEventListener("click", () => {
+    const a = fromSel.value;
+    fromSel.value = toSel.value;
+    toSel.value = a;
+    clearTimeout(convertTimer);
+    doConvert();
+  });
+
+  /* ---- History ---- */
+  async function loadHistory() {
+    try {
+      const res = await fetch(API + "/history?limit=50");
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.history || data.items || []);
+      renderHistory(items);
+    } catch (e) {
+      historyList.innerHTML = '<p class="text-sm text-rose-400">Could not load history.</p>';
+    }
+  }
+
+  function renderHistory(items) {
+    if (!items || !items.length) {
+      historyList.innerHTML = '<p class="text-sm text-gray-500">No conversions yet.</p>';
+      return;
+    }
+    historyList.innerHTML = "";
+    items.forEach((it) => {
+      const row = document.createElement("div");
+      row.className = "rounded-lg bg-gray-950 border border-gray-800 px-3 py-2 text-sm";
+      const cat = it.category || currentCat;
+      const f = it.from_unit || it.fromUnit || "?";
+      const t = it.to_unit || it.toUnit || "?";
+      const v = it.input_value != null ? it.input_value : (it.value != null ? it.value : it.inputValue);
+      const r = it.result != null ? it.result : it.converted;
+      const when = it.created_at || it.createdAt || it.time;
+      let timeStr = "";
+      if (when) {
+        try { timeStr = new Date(when).toLocaleString(); } catch (_) { timeStr = String(when); }
+      }
+      const line1 = document.createElement("div");
+      line1.className = "flex justify-between gap-2 text-gray-300";
+      line1.innerHTML = '<span class="font-medium text-indigo-300">' + escapeHtml(catLabel(cat)) +
+        '</span><span class="text-gray-500 text-xs">' + escapeHtml(timeStr) + "</span>";
+      const line2 = document.createElement("div");
+      line2.className = "text-gray-100 font-mono text-xs mt-1 break-all";
+      line2.textContent = escapeHtml(String(f)) + " → " + escapeHtml(String(t)) + "  ·  " +
+        formatNum(v) + " → " + formatNum(r);
+      row.appendChild(line1);
+      row.appendChild(line2);
+      historyList.appendChild(row);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (m) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[m]));
+  }
+
+  $("clearHistory").addEventListener("click", async () => {
+    clearError();
+    try {
+      const res = await fetch(API + "/history", { method: "DELETE" });
+      if (!res.ok) {
+        let detail = "Failed to clear (" + res.status + ")";
+        try {
+          const j = await res.json();
+          if (j && j.detail) detail = j.detail;
+        } catch (_) {}
+        throw new Error(detail);
+      }
+      renderHistory([]);
+    } catch (e) {
+      showError(e.message);
+    }
+  });
+
+  // Initial units fetch on load
+  loadUnits().then((u) => { if (u) populateUnits(); });
+
+})();
+</script>
+</body>
+</html>
